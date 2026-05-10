@@ -12,7 +12,6 @@ def get_role_by_name(db: Session, role_name: str):
 def create_user(db: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)
     
-    # Si no se envía un id_rol, asignar el de "Usuario empresarial" por defecto
     role_id = user.id_rol
     if not role_id:
         default_role = get_role_by_name(db, "Usuario empresarial")

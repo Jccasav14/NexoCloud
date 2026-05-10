@@ -3,7 +3,6 @@ from app.models.all_models import Role, User
 from app.controllers.auth_controller import get_password_hash
 
 def init_db(db: Session):
-    # Crear roles si no existen
     roles_iniciales = ["Administrador", "Usuario empresarial", "Supervisor/Auditor"]
     
     for nombre_rol in roles_iniciales:
@@ -14,7 +13,6 @@ def init_db(db: Session):
     
     db.commit()
 
-    # Crear usuario administrador por defecto
     admin_rol = db.query(Role).filter(Role.nombre_rol == "Administrador").first()
     
     admin_email = "admin@nexocloud.com"
@@ -24,7 +22,7 @@ def init_db(db: Session):
         nuevo_admin = User(
             nombre="Admin Principal",
             correo=admin_email,
-            password_hash=get_password_hash("admin123"), # Contraseña por defecto
+            password_hash=get_password_hash("admin123"),
             id_rol=admin_rol.id_rol,
             estado="activo"
         )

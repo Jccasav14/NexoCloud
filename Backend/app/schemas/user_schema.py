@@ -8,8 +8,6 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    # Por defecto se asignará el rol de "Usuario empresarial" si no se provee.
-    # En un caso real, un endpoint público no debería permitir enviar id_rol.
     id_rol: Optional[int] = None
 
 class UserLogin(BaseModel):

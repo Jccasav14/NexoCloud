@@ -31,8 +31,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         )
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    # Podemos incluir el rol en el token payload si queremos
     role_name = user.rol.nombre_rol if user.rol else None
     
     access_token = create_access_token(
