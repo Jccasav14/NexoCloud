@@ -23,6 +23,9 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://nexo_user:nexo_password@db:5432/nexocloud_db
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - db
     restart: unless-stopped
