@@ -1,0 +1,244 @@
+.split-login-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #FFFFFF;
+}
+
+/* LEFT SIDE - The Form */
+.split-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  background-color: #FFFFFF;
+  position: relative;
+}
+
+.login-form-wrapper {
+  width: 100%;
+  max-width: 400px;
+}
+
+.split-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 48px;
+}
+
+.split-brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.split-brand span {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #111827;
+}
+
+.login-header h2 {
+  font-size: 30px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.login-header p {
+  color: #6B7280;
+  font-size: 15px;
+  margin-bottom: 32px;
+}
+
+.split-tabs {
+  display: flex;
+  gap: 4px;
+  background: #F3F4F6;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 32px;
+}
+
+.split-tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6B7280;
+  border: none;
+  background: transparent;
+}
+
+.split-tab:hover:not(.active) {
+  color: #374151;
+}
+
+.split-tab.active {
+  background: #FFFFFF;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.light-form-group {
+  margin-bottom: 20px;
+}
+
+.light-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.light-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.light-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #9CA3AF;
+  display: flex;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.light-input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 14px;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.light-input::placeholder {
+  color: #9CA3AF;
+}
+
+.light-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.light-input:focus + .light-input-icon,
+.light-input:focus ~ .light-input-icon {
+  color: var(--primary);
+}
+
+.light-toggle-password {
+  position: absolute;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #9CA3AF;
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.light-toggle-password:hover {
+  color: #4B5563;
+}
+
+.light-btn-submit {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.light-btn-submit:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+}
+
+.light-btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* RIGHT SIDE - Image & Branding */
+.split-right {
+  flex: 1;
+  background-image: url('/bg-split.png');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 64px;
+  color: white;
+}
+
+.split-right::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(9, 9, 11, 0.4) 0%, rgba(9, 9, 11, 0.8) 100%);
+  z-index: 1;
+}
+
+.split-right-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.split-quote {
+  max-width: 480px;
+}
+
+.split-quote h3 {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.split-quote p {
+  color: #D4D4D8;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Responsiveness */
+@media (max-width: 900px) {
+  .split-right {
+    display: none;
+  }
+}
