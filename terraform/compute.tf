@@ -1,53 +1,5 @@
 # AWS Compute resources: ALB, Launch Templates, and Auto Scaling Groups
 
-# 1. IAM Role & Profile for Backend S3 Access
-resource "aws_iam_role" "backend_role" {
-  name = "${var.project_name}-backend-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "backend_s3_policy" {
-  name = "${var.project_name}-backend-s3-policy"
-  role = aws_iam_role.backend_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.user_storage.arn,
-          "${aws_s3_bucket.user_storage.arn}/*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_instance_profile" "backend_profile" {
-  name = "${var.project_name}-backend-profile"
-  role = aws_iam_role.backend_role.name
-}
-
-
 # 2. Application Load Balancer
 resource "aws_lb" "app_alb" {
   name               = "${var.project_name}-alb"
@@ -175,9 +127,6 @@ resource "aws_launch_template" "backend_lt" {
   instance_type = "t3.micro"
   key_name      = var.key_name != "" ? var.key_name : null
 
-  iam_instance_profile {
-    name = aws_iam_instance_profile.backend_profile.name
-  }
 
   network_interfaces {
     associate_public_ip_address = true
