@@ -38,3 +38,5 @@ Backend/app/uploads/
 .terraform.lock.hcl
 *.tfvars
 *.tfvars.json
+terraform/*.zip
+
