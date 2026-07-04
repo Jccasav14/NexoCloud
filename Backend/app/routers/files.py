@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
+import os
 
 from app.database import get_db
-from app.models.all_models import User
+from app.models.all_models import User, File
 from app.routers.deps import get_current_active_user
 from app.schemas.file_schema import FileResponse
 from app.controllers.files_controller import (
@@ -24,7 +26,24 @@ def upload_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    # Calculate current storage used by the user
+    user_storage = db.query(func.sum(File.tamano)).filter(File.id_usuario == current_user.id_usuario).scalar() or 0
+    storage_limit = 10737418240  # 10 GB in bytes
+
     result = save_file_locally(file, current_user.id_usuario)
+
+    if user_storage + result["size"] > storage_limit:
+        # Delete the file we just saved
+        file_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            result["path"]
+        )
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(
+            status_code=400,
+            detail="Límite de almacenamiento de 10 GB superado para este usuario."
+        )
 
     db_file = create_file_record(
         db=db,

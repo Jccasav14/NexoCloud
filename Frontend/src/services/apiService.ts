@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = import.meta.env.DEV ? "http://localhost:8000/api" : "/api";
 
 function getHeaders(): HeadersInit {
   const token = localStorage.getItem("token");
@@ -142,6 +142,12 @@ export const apiService = {
   async getAuditEventsForAuditor(): Promise<EventItem[]> {
     const res = await fetch(`${API_URL}/audit/events`, { headers: getHeaders() });
     if (!res.ok) throw new Error("Error al obtener eventos");
+    return res.json();
+  },
+
+  async getDashboardStats(): Promise<any> {
+    const res = await fetch(`${API_URL}/dashboard/stats`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Error al obtener estadísticas del dashboard");
     return res.json();
   },
 };

@@ -19,8 +19,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: nexocloud_backend
-    ports:
-      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://nexo_user:nexo_password@db:5432/nexocloud_db
     volumes:
@@ -35,9 +33,19 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: nexocloud_frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nexocloud_gateway
     ports:
       - "80:80"
     depends_on:
+      - frontend
       - backend
     restart: unless-stopped
 

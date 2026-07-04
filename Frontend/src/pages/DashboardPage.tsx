@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   LogOut, Menu, X, LayoutDashboard, Users, FolderOpen, Activity,
   Settings, UploadCloud, User as UserIcon, Shield, Eye, EyeOff,
-  AlertCircle, CheckCircle2, Lock, Trash2, UserCheck, UserX, RefreshCw
+  AlertCircle, CheckCircle2, Lock, Trash2, UserCheck, UserX, RefreshCw,
+  HardDrive, FileText, ChevronRight
 } from "lucide-react";
 import { authService, type UserResponse } from "../services/authService";
 import { apiService, type FileItem, type EventItem, type UserItem } from "../services/apiService";
@@ -125,7 +126,7 @@ export default function DashboardPage({ user, onLogout }: DashboardPageProps) {
         </header>
 
         <div className="dashboard-content">
-          {activeView === "dashboard" && <DashboardHome user={user} roleName={roleName} />}
+          {activeView === "dashboard" && <DashboardHome user={user} roleName={roleName} setActiveView={setActiveView} />}
           {activeView === "my-files" && <MyFilesView />}
           {activeView === "upload" && <UploadView />}
           {activeView === "admin-users" && <AdminUsersView />}
@@ -139,42 +140,625 @@ export default function DashboardPage({ user, onLogout }: DashboardPageProps) {
   );
 }
 
-function DashboardHome({ user, roleName }: { user: UserResponse; roleName: string }) {
-  const adminCards = [
-    { icon: <Users size={24} />, title: "Gestion de Usuarios", desc: "Administra cuentas, roles y permisos de todos los usuarios.", badge: "Admin", iconClass: "icon-purple" },
-    { icon: <FolderOpen size={24} />, title: "Gestion de Archivos", desc: "Supervisa todos los archivos subidos al sistema.", badge: "Admin", iconClass: "icon-cyan" },
-    { icon: <Activity size={24} />, title: "Panel de Auditoria", desc: "Visualiza logs, eventos y trazabilidad del sistema.", badge: "Admin", iconClass: "icon-orange" },
-  ];
-  const userCards = [
-    { icon: <FolderOpen size={24} />, title: "Mis Archivos", desc: "Sube, descarga y organiza tus archivos en la nube.", badge: "Archivos", iconClass: "icon-cyan" },
-    { icon: <UploadCloud size={24} />, title: "Subir Archivo", desc: "Carga nuevos archivos de forma segura.", badge: "Accion", iconClass: "icon-green" },
-  ];
-  const auditorCards = [
-    { icon: <Activity size={24} />, title: "Registro de Eventos", desc: "Consulta el historial de acciones realizadas.", badge: "Auditoria", iconClass: "icon-orange" },
-  ];
+interface DashboardHomeProps {
+  user: UserResponse;
+  roleName: string;
+  setActiveView: (view: string) => void;
+}
 
-  const cards = user.id_rol === 1 ? adminCards : user.id_rol === 3 ? auditorCards : userCards;
+function DashboardHome({ user, roleName, setActiveView }: DashboardHomeProps) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  return (
-    <>
-      <div className="dashboard-welcome">
-        <h1>Hola, {user.nombre.split(" ")[0]}</h1>
-        <p>Bienvenido al panel de {roleName}. Aqui tienes acceso a tus herramientas.</p>
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiService.getDashboardStats();
+      setStats(data);
+    } catch (err: any) {
+      setError(err.message || "Error al cargar las estadísticas del dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = 1;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  const getEventBadgeColor = (type: string) => {
+    switch (type) {
+      case "SUBIDA_ARCHIVO": return "status-active";
+      case "ELIMINACION_ARCHIVO":
+      case "ADMIN_ELIMINACION_ARCHIVO":
+      case "DESACTIVACION_USUARIO":
+        return "status-inactive";
+      case "ACTIVACION_USUARIO":
+      case "CAMBIO_ROL":
+        return "status-warning";
+      case "LOGIN": return "status-info";
+      default: return "status-default";
+    }
+  };
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case "SUBIDA_ARCHIVO": return <UploadCloud size={16} />;
+      case "ELIMINACION_ARCHIVO":
+      case "ADMIN_ELIMINACION_ARCHIVO":
+        return <Trash2 size={16} />;
+      case "DESACTIVACION_USUARIO": return <UserX size={16} />;
+      case "ACTIVACION_USUARIO": return <UserCheck size={16} />;
+      case "CAMBIO_ROL": return <RefreshCw size={16} />;
+      case "LOGIN": return <UserIcon size={16} />;
+      default: return <Activity size={16} />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading">
+        <div className="spinner-loader"></div>
+        <p>Generando vista consolidada del panel...</p>
       </div>
-      <div className="dashboard-grid">
-        {cards.map((card, i) => (
-          <div className="dashboard-card" key={i}>
-            <div className="dashboard-card-header">
-              <div className={`dashboard-card-icon ${card.iconClass}`}>{card.icon}</div>
-              <span className="dashboard-card-badge">{card.badge}</span>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error-card">
+        <AlertCircle size={40} className="icon-error-anim" />
+        <h3>Error al Cargar Dashboard</h3>
+        <p>{error}</p>
+        <button className="btn-refresh" onClick={fetchStats} style={{ marginTop: 12 }}>
+          <RefreshCw size={16} /> Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  // Helper chart component (SVG Donut)
+  const DonutChart = ({ data, totalLabel }: { data: { label: string; value: number; color: string }[]; totalLabel: string }) => {
+    const total = data.reduce((acc, item) => acc + item.value, 0);
+    let accumulatedPercent = 0;
+    
+    return (
+      <div className="donut-chart-container">
+        <div className="donut-svg-wrapper">
+          <svg viewBox="0 0 100 100" className="donut-svg">
+            {total === 0 ? (
+              <circle cx="50" cy="50" r="38" fill="transparent" stroke="#E5E7EB" strokeWidth="10" />
+            ) : (
+              data.map((item, index) => {
+                const percent = (item.value / total) * 100;
+                const strokeDash = `${percent} ${100 - percent}`;
+                const strokeOffset = 100 - accumulatedPercent + 25; // 25 to start at 12 o'clock
+                accumulatedPercent += percent;
+                
+                return (
+                  <circle
+                    key={index}
+                    cx="50"
+                    cy="50"
+                    r="38"
+                    fill="transparent"
+                    stroke={item.color}
+                    strokeWidth="10"
+                    strokeDasharray={strokeDash}
+                    strokeDashoffset={strokeOffset}
+                    strokeLinecap="round"
+                    className="donut-segment"
+                  />
+                );
+              })
+            )}
+            <circle cx="50" cy="50" r="28" fill="#FFFFFF" />
+            <text x="50" y="48" textAnchor="middle" className="donut-center-val">
+              {total}
+            </text>
+            <text x="50" y="60" textAnchor="middle" className="donut-center-lbl">
+              {totalLabel}
+            </text>
+          </svg>
+        </div>
+        <div className="donut-legend">
+          {data.map((item, idx) => (
+            <div key={idx} className="donut-legend-item">
+              <span className="legend-color-dot" style={{ backgroundColor: item.color }} />
+              <span className="legend-text">
+                <span className="legend-label">{item.label}</span>
+                <span className="legend-val">{item.value} ({total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%)</span>
+              </span>
             </div>
-            <h3>{card.title}</h3>
-            <p>{card.desc}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </>
-  );
+    );
+  };
+
+  const getEventChartData = (breakdown: Record<string, number>) => {
+    const colors = ["#8B5CF6", "#EC4899", "#10B981", "#3B82F6", "#F59E0B", "#EF4444"];
+    return Object.entries(breakdown).map(([label, value], idx) => ({
+      label: label.replace("_", " "),
+      value,
+      color: colors[idx % colors.length]
+    }));
+  };
+
+  const renderAdminDashboard = () => {
+    const s = stats.stats;
+    const recentEvents = stats.recent_events || [];
+    const recentFiles = stats.recent_files || [];
+    const breakdown = stats.events_breakdown || {};
+    const chartData = getEventChartData(breakdown);
+
+    return (
+      <div className="dashboard-view-wrapper animate-fade-in">
+        {/* Banner de Bienvenida */}
+        <div className="dashboard-welcome-banner">
+          <div className="banner-details">
+            <h1>Bienvenido de nuevo, {user.nombre.split(" ")[0]} 🚀</h1>
+            <p>Monitoreo global en tiempo real de NexoCloud. Tienes permisos del rol: <strong>{roleName}</strong>.</p>
+          </div>
+          <button className="btn-refresh-dashboard" onClick={fetchStats} title="Actualizar datos">
+            <RefreshCw size={18} />
+          </button>
+        </div>
+
+        {/* Tarjetas de Métricas */}
+        <div className="metrics-row">
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Usuarios Registrados</span>
+              <div className="metric-icon bg-purple-soft"><Users size={20} /></div>
+            </div>
+            <div className="metric-value">{s.total_users}</div>
+            <div className="metric-footer text-success">
+              <UserCheck size={14} style={{ marginRight: 4 }} />
+              <span>{s.active_users} cuentas activas</span>
+            </div>
+          </div>
+
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Archivos en Plataforma</span>
+              <div className="metric-icon bg-pink-soft"><FolderOpen size={20} /></div>
+            </div>
+            <div className="metric-value">{s.total_files}</div>
+            <div className="metric-footer text-muted">
+              <span>Almacenamiento total de NexoCloud</span>
+            </div>
+          </div>
+
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Almacenamiento Usado</span>
+              <div className="metric-icon bg-cyan-soft"><HardDrive size={20} /></div>
+            </div>
+            <div className="metric-value">{formatSize(s.total_storage)}</div>
+            <div className="metric-footer text-primary">
+              <span>Almacenado local / S3 integrado</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cuerpo del Dashboard: Dos Columnas */}
+        <div className="dashboard-layout-grid">
+          {/* Gráfico y Acciones */}
+          <div className="dashboard-column flex-col-gap">
+            <div className="panel-card shadow-premium">
+              <h3>Actividades por Tipo</h3>
+              <p className="panel-subtitle">Distribución porcentual de los eventos registrados</p>
+              {chartData.length === 0 ? (
+                <div className="empty-panel-state">
+                  <Activity size={32} />
+                  <p>No hay eventos registrados para graficar.</p>
+                </div>
+              ) : (
+                <DonutChart data={chartData} totalLabel="Eventos" />
+              )}
+            </div>
+
+            <div className="panel-card shadow-premium">
+              <h3>Accesos Directos</h3>
+              <div className="quick-actions-grid">
+                <button className="quick-action-btn" onClick={() => setActiveView("admin-users")}>
+                  <Users size={18} />
+                  <span>Gestionar Usuarios</span>
+                </button>
+                <button className="quick-action-btn" onClick={() => setActiveView("admin-files")}>
+                  <FolderOpen size={18} />
+                  <span>Ver Archivos</span>
+                </button>
+                <button className="quick-action-btn" onClick={() => setActiveView("admin-events")}>
+                  <Activity size={18} />
+                  <span>Auditoría Global</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Listados Recientes */}
+          <div className="dashboard-column flex-col-gap">
+            <div className="panel-card shadow-premium">
+              <h3>Actividades Recientes</h3>
+              <div className="activity-timeline">
+                {recentEvents.length === 0 ? (
+                  <p className="text-muted text-center py-4">Sin actividades recientes.</p>
+                ) : (
+                  recentEvents.map((e: any) => (
+                    <div key={e.id_evento} className="timeline-item">
+                      <div className={`timeline-icon ${getEventBadgeColor(e.tipo_evento)}`}>
+                        {getEventIcon(e.tipo_evento)}
+                      </div>
+                      <div className="timeline-content">
+                        <div className="timeline-header">
+                          <span className="timeline-user">{e.nombre_usuario}</span>
+                          <span className="timeline-time">{new Date(e.fecha_evento).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <p className="timeline-desc">{e.descripcion}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="panel-card shadow-premium">
+              <h3>Últimos Archivos Subidos</h3>
+              <div className="recent-files-list">
+                {recentFiles.length === 0 ? (
+                  <p className="text-muted text-center py-4">No se han subido archivos aún.</p>
+                ) : (
+                  recentFiles.map((f: any) => (
+                    <div key={f.id_archivo} className="recent-file-item">
+                      <div className="file-avatar">
+                        <FileText size={20} />
+                      </div>
+                      <div className="file-details">
+                        <span className="file-name">{f.nombre_archivo}</span>
+                        <span className="file-meta">
+                          Subido por {f.nombre_usuario} • {formatSize(f.tamano)}
+                        </span>
+                      </div>
+                      <span className="file-date">{new Date(f.fecha_subida).toLocaleDateString()}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUserDashboard = () => {
+    const s = stats.stats;
+    const recentFiles = stats.recent_files || [];
+    const recentEvents = stats.recent_events || [];
+    const breakdown = stats.types_breakdown || {};
+    const hasFiles = s.total_files > 0;
+    
+    // Storage calculations
+    const percentUsed = Math.min(100, (s.total_storage / s.storage_limit) * 100);
+    const storageLeft = Math.max(0, s.storage_limit - s.total_storage);
+
+    return (
+      <div className="dashboard-view-wrapper animate-fade-in">
+        {/* Banner de Bienvenida */}
+        <div className="dashboard-welcome-banner">
+          <div className="banner-details">
+            <h1>Hola, {user.nombre.split(" ")[0]} 👋</h1>
+            <p>Este es tu panel corporativo en NexoCloud. Administra, almacena y visualiza tus archivos de forma segura.</p>
+          </div>
+          <button className="btn-refresh-dashboard" onClick={fetchStats} title="Actualizar datos">
+            <RefreshCw size={18} />
+          </button>
+        </div>
+
+        {/* Fila de Métricas del Usuario */}
+        <div className="metrics-row">
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Mis Archivos</span>
+              <div className="metric-icon bg-cyan-soft"><FolderOpen size={20} /></div>
+            </div>
+            <div className="metric-value">{s.total_files}</div>
+            <div className="metric-footer text-muted">
+              <span>Archivos subidos a tu cuenta</span>
+            </div>
+          </div>
+
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Espacio Utilizado</span>
+              <div className="metric-icon bg-purple-soft"><HardDrive size={20} /></div>
+            </div>
+            <div className="metric-value">{formatSize(s.total_storage)}</div>
+            <div className="metric-footer text-muted">
+              <span>De un límite total de {formatSize(s.storage_limit)}</span>
+            </div>
+          </div>
+
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Espacio Disponible</span>
+              <div className="metric-icon bg-green-soft"><CheckCircle2 size={20} /></div>
+            </div>
+            <div className="metric-value">{formatSize(storageLeft)}</div>
+            <div className="metric-footer text-success">
+              <span>{percentUsed.toFixed(1)}% de la cuota utilizada</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjeta de Almacenamiento Premium */}
+        <div className="panel-card shadow-premium storage-widget-card">
+          <div className="storage-widget-header">
+            <div>
+              <h3>Uso de tu Cuota de Almacenamiento</h3>
+              <p className="panel-subtitle">Consumo de espacio en la nube</p>
+            </div>
+            <span className="storage-percent-pill">{percentUsed.toFixed(1)}% usado</span>
+          </div>
+          <div className="storage-progress-container">
+            <div className="storage-progress-bar" style={{ width: `${percentUsed}%` }}>
+              <div className="storage-progress-glow" />
+            </div>
+          </div>
+          <div className="storage-progress-footer">
+            <span>{formatSize(s.total_storage)} ocupados</span>
+            <span>Límite corporativo: {formatSize(s.storage_limit)}</span>
+          </div>
+        </div>
+
+        {/* Dos columnas del dashboard */}
+        <div className="dashboard-layout-grid">
+          {/* Formatos e Historial */}
+          <div className="dashboard-column flex-col-gap">
+            <div className="panel-card shadow-premium">
+              <h3>Formatos de tus Archivos</h3>
+              <p className="panel-subtitle">Distribución por extensión de archivo</p>
+              {!hasFiles ? (
+                <div className="empty-panel-state">
+                  <FileText size={32} />
+                  <p>Sube archivos para ver la distribución de formatos.</p>
+                </div>
+              ) : (
+                <div className="file-formats-breakdown" style={{ marginTop: 12 }}>
+                  {Object.entries(breakdown).map(([ext, count]: [string, any], idx) => {
+                    const pct = ((count / s.total_files) * 100).toFixed(0);
+                    return (
+                      <div key={idx} className="format-item">
+                        <div className="format-info">
+                          <span className="format-badge">{ext}</span>
+                          <span className="format-count">{count} archivo(s) ({pct}%)</span>
+                        </div>
+                        <div className="format-bar-container">
+                          <div className="format-bar" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="panel-card shadow-premium">
+              <h3>Enlaces Rápidos</h3>
+              <div className="quick-actions-grid">
+                <button className="quick-action-btn" onClick={() => setActiveView("upload")}>
+                  <UploadCloud size={18} />
+                  <span>Subir un Archivo</span>
+                </button>
+                <button className="quick-action-btn" onClick={() => setActiveView("my-files")}>
+                  <FolderOpen size={18} />
+                  <span>Gestionar Mis Archivos</span>
+                </button>
+                <button className="quick-action-btn" onClick={() => setActiveView("settings")}>
+                  <Settings size={18} />
+                  <span>Seguridad de Cuenta</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Archivos Recientes y Eventos */}
+          <div className="dashboard-column flex-col-gap">
+            <div className="panel-card shadow-premium">
+              <h3>Mis Archivos Recientes</h3>
+              <div className="recent-files-list">
+                {recentFiles.length === 0 ? (
+                  <div className="empty-panel-state">
+                    <FolderOpen size={32} />
+                    <p>No has subido ningún archivo aún.</p>
+                  </div>
+                ) : (
+                  recentFiles.map((f: any) => (
+                    <div key={f.id_archivo} className="recent-file-item">
+                      <div className="file-avatar">
+                        <FileText size={20} />
+                      </div>
+                      <div className="file-details">
+                        <span className="file-name">{f.nombre_archivo}</span>
+                        <span className="file-meta">
+                          {formatSize(f.tamano)} • {new Date(f.fecha_subida).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <ChevronRight size={18} className="icon-chevron-right" />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="panel-card shadow-premium">
+              <h3>Mi Historial de Acciones</h3>
+              <div className="activity-timeline">
+                {recentEvents.length === 0 ? (
+                  <p className="text-muted text-center py-4">No hay historial reciente.</p>
+                ) : (
+                  recentEvents.map((e: any) => (
+                    <div key={e.id_evento} className="timeline-item">
+                      <div className={`timeline-icon ${getEventBadgeColor(e.tipo_evento)}`}>
+                        {getEventIcon(e.tipo_evento)}
+                      </div>
+                      <div className="timeline-content">
+                        <div className="timeline-header">
+                          <span className="timeline-user">{e.tipo_evento.replace("_", " ")}</span>
+                          <span className="timeline-time">{new Date(e.fecha_evento).toLocaleDateString()}</span>
+                        </div>
+                        <p className="timeline-desc">{e.descripcion}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAuditorDashboard = () => {
+    const s = stats.stats;
+    const recentEvents = stats.recent_events || [];
+    const breakdown = stats.events_breakdown || {};
+    const chartData = getEventChartData(breakdown);
+
+    return (
+      <div className="dashboard-view-wrapper animate-fade-in">
+        {/* Banner de Bienvenida */}
+        <div className="dashboard-welcome-banner">
+          <div className="banner-details">
+            <h1>Consola de Auditoría de NexoCloud 🛡️</h1>
+            <p>Registro y análisis del cumplimiento normativo del sistema. Sesión activa: <strong>{user.nombre}</strong>.</p>
+          </div>
+          <button className="btn-refresh-dashboard" onClick={fetchStats} title="Actualizar datos">
+            <RefreshCw size={18} />
+          </button>
+        </div>
+
+        {/* Tarjetas de Métricas de Auditoría */}
+        <div className="metrics-row">
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Eventos Registrados</span>
+              <div className="metric-icon bg-orange-soft"><Activity size={20} /></div>
+            </div>
+            <div className="metric-value">{s.total_events}</div>
+            <div className="metric-footer text-muted">
+              <span>Logs totales capturados por el sistema</span>
+            </div>
+          </div>
+
+          <div className="metric-card shadow-premium">
+            <div className="metric-card-header">
+              <span className="metric-title">Usuarios Activos en Logs</span>
+              <div className="metric-icon bg-purple-soft"><Users size={20} /></div>
+            </div>
+            <div className="metric-value">{s.unique_users}</div>
+            <div className="metric-footer text-muted">
+              <span>Usuarios únicos que han realizado acciones</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dos columnas del dashboard */}
+        <div className="dashboard-layout-grid">
+          {/* Gráfico de Auditoría */}
+          <div className="dashboard-column flex-col-gap">
+            <div className="panel-card shadow-premium">
+              <h3>Frecuencia de Actividades por Tipo</h3>
+              <p className="panel-subtitle">Auditoría del tipo de eventos del sistema</p>
+              {chartData.length === 0 ? (
+                <div className="empty-panel-state">
+                  <Activity size={32} />
+                  <p>Sin logs de auditoría disponibles en este momento.</p>
+                </div>
+              ) : (
+                <DonutChart data={chartData} totalLabel="Logs" />
+              )}
+            </div>
+
+            <div className="panel-card shadow-premium">
+              <h3>Accesos Directos</h3>
+              <div className="quick-actions-grid">
+                <button className="quick-action-btn" onClick={() => setActiveView("audit-events")}>
+                  <Activity size={18} />
+                  <span>Bitácora de Logs</span>
+                </button>
+                <button className="quick-action-btn" onClick={() => setActiveView("settings")}>
+                  <Settings size={18} />
+                  <span>Ajustes de Auditor</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Historial de Auditoría */}
+          <div className="dashboard-column">
+            <div className="panel-card shadow-premium">
+              <h3>Historial Crítico de Auditoría</h3>
+              <p className="panel-subtitle">Logs recientes del sistema en orden cronológico</p>
+              <div className="activity-timeline" style={{ marginTop: 16 }}>
+                {recentEvents.length === 0 ? (
+                  <p className="text-muted text-center py-4">No se han registrado logs.</p>
+                ) : (
+                  recentEvents.map((e: any) => (
+                    <div key={e.id_evento} className="timeline-item">
+                      <div className={`timeline-icon ${getEventBadgeColor(e.tipo_evento)}`}>
+                        {getEventIcon(e.tipo_evento)}
+                      </div>
+                      <div className="timeline-content">
+                        <div className="timeline-header">
+                          <span className="timeline-user">{e.nombre_usuario}</span>
+                          <span className="timeline-time">
+                            {new Date(e.fecha_evento).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <p className="timeline-desc">
+                          <strong>[{e.tipo_evento}]</strong> {e.descripcion}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (stats.role === "admin") {
+    return renderAdminDashboard();
+  } else if (stats.role === "user") {
+    return renderUserDashboard();
+  } else if (stats.role === "auditor") {
+    return renderAuditorDashboard();
+  } else {
+    return (
+      <div className="alert alert-error">
+        <AlertCircle size={20} />
+        <span>Rol de usuario no soportado para el panel de estadísticas.</span>
+      </div>
+    );
+  }
 }
 
 function MyFilesView() {

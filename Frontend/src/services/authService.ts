@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = import.meta.env.DEV ? "http://localhost:8000/api" : "/api";
 
 export interface UserResponse {
   id_usuario: number;
