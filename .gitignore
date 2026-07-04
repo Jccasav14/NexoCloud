@@ -31,6 +31,10 @@ Thumbs.db
 .dockerignore
 Backend/app/uploads/
 
+# Claude Code project notes / academic documentation (not for the repo)
+CLAUDE.md
+Documentos/
+
 # Terraform
 .terraform/
 *.tfstate
