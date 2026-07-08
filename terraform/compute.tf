@@ -127,6 +127,9 @@ resource "aws_launch_template" "backend_lt" {
   instance_type = "t3.micro"
   key_name      = var.key_name != "" ? var.key_name : null
 
+  iam_instance_profile {
+    name = "LabInstanceProfile"
+  }
 
   network_interfaces {
     associate_public_ip_address = true
@@ -156,7 +159,9 @@ resource "aws_launch_template" "backend_lt" {
               # Run backend docker image
               sudo docker run -d -p 8000:8000 --name backend \
                 -e DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${aws_instance.db_instance.private_ip}:5432/${var.db_name} \
+                -e STORAGE_PROVIDER=s3 \
                 -e S3_BUCKET_NAME=${aws_s3_bucket.user_storage.id} \
+                -e AWS_REGION=${var.aws_region} \
                 --restart always ${var.docker_username}/nexocloud-backend:latest
               EOF
   )

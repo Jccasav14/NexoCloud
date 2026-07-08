@@ -65,7 +65,6 @@ export const apiService = {
     if (!res.ok) throw new Error("Error al obtener archivos");
     return res.json();
   },
-
   async deleteMyFile(fileId: number): Promise<void> {
     const res = await fetch(`${API_URL}/files/${fileId}`, {
       method: "DELETE",
@@ -75,6 +74,26 @@ export const apiService = {
       const err = await res.json();
       throw new Error(err.detail || "Error al eliminar archivo");
     }
+  },
+
+  async downloadFile(fileId: number, filename: string): Promise<void> {
+    const res = await fetch(`${API_URL}/files/${fileId}/download`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Error al descargar archivo");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   },
 
   async getAllUsers(): Promise<UserItem[]> {

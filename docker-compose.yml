@@ -19,10 +19,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: nexocloud_backend
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://nexo_user:nexo_password@db:5432/nexocloud_db
     volumes:
       - ./backend/app:/app/app
+      - ~/.aws:/root/.aws:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - db

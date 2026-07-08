@@ -3,7 +3,7 @@ import {
   LogOut, Menu, X, LayoutDashboard, Users, FolderOpen, Activity,
   Settings, UploadCloud, User as UserIcon, Shield, Eye, EyeOff,
   AlertCircle, CheckCircle2, Lock, Trash2, UserCheck, UserX, RefreshCw,
-  HardDrive, FileText, ChevronRight
+  HardDrive, FileText, ChevronRight, Download
 } from "lucide-react";
 import { authService, type UserResponse } from "../services/authService";
 import { apiService, type FileItem, type EventItem, type UserItem } from "../services/apiService";
@@ -765,6 +765,7 @@ function MyFilesView() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -784,6 +785,19 @@ function MyFilesView() {
       setMsg(`Archivo "${name}" eliminado`);
       loadFiles();
     } catch { setMsg("Error al eliminar"); }
+  };
+
+  const handleDownload = async (id: number, name: string) => {
+    setDownloadingId(id);
+    setMsg("");
+    try {
+      await apiService.downloadFile(id, name);
+      setMsg(`Archivo "${name}" descargado exitosamente`);
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Error al descargar el archivo");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -810,7 +824,25 @@ function MyFilesView() {
                   <td>{f.tipo_archivo || "-"}</td>
                   <td>{formatSize(f.tamano)}</td>
                   <td>{new Date(f.fecha_subida).toLocaleDateString()}</td>
-                  <td><button className="btn-icon-danger" onClick={() => handleDelete(f.id_archivo, f.nombre_archivo)}><Trash2 size={16} /></button></td>
+                  <td>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        className="btn-icon-primary"
+                        onClick={() => handleDownload(f.id_archivo, f.nombre_archivo)}
+                        disabled={downloadingId === f.id_archivo}
+                        title="Descargar"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        className="btn-icon-danger"
+                        onClick={() => handleDelete(f.id_archivo, f.nombre_archivo)}
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -937,6 +969,7 @@ function AdminFilesView() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -953,6 +986,19 @@ function AdminFilesView() {
       setMsg(`Archivo "${name}" eliminado`);
       loadFiles();
     } catch { setMsg("Error al eliminar"); }
+  };
+
+  const handleDownload = async (id: number, name: string) => {
+    setDownloadingId(id);
+    setMsg("");
+    try {
+      await apiService.downloadFile(id, name);
+      setMsg(`Archivo "${name}" descargado exitosamente`);
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Error al descargar el archivo");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -980,7 +1026,25 @@ function AdminFilesView() {
                   <td>{f.tipo_archivo || "-"}</td>
                   <td>{formatSize(f.tamano)}</td>
                   <td>{new Date(f.fecha_subida).toLocaleDateString()}</td>
-                  <td><button className="btn-icon-danger" onClick={() => handleDelete(f.id_archivo, f.nombre_archivo)}><Trash2 size={16} /></button></td>
+                  <td>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        className="btn-icon-primary"
+                        onClick={() => handleDownload(f.id_archivo, f.nombre_archivo)}
+                        disabled={downloadingId === f.id_archivo}
+                        title="Descargar"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        className="btn-icon-danger"
+                        onClick={() => handleDelete(f.id_archivo, f.nombre_archivo)}
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

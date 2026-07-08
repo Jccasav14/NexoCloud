@@ -9,7 +9,7 @@ from app.models.all_models import User, File
 from app.routers.deps import get_current_active_user
 from app.schemas.file_schema import FileResponse
 from app.controllers.files_controller import (
-    save_file_locally,
+    save_file_to_storage,
     create_file_record,
     get_files_by_user,
     get_file_by_id,
@@ -30,16 +30,11 @@ def upload_file(
     user_storage = db.query(func.sum(File.tamano)).filter(File.id_usuario == current_user.id_usuario).scalar() or 0
     storage_limit = 10737418240  # 10 GB in bytes
 
-    result = save_file_locally(file, current_user.id_usuario)
+    result = save_file_to_storage(file, current_user.id_usuario)
 
     if user_storage + result["size"] > storage_limit:
-        # Delete the file we just saved
-        file_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            result["path"]
-        )
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        from app.s3_service import storage_service
+        storage_service.delete_file(result["path"])
         raise HTTPException(
             status_code=400,
             detail="Límite de almacenamiento de 10 GB superado para este usuario."
@@ -115,3 +110,41 @@ def delete_my_file(
     )
 
     return {"message": f"Archivo '{filename}' eliminado exitosamente"}
+
+
+@router.get("/{file_id}/download")
+def download_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    import urllib.parse
+    from fastapi.responses import StreamingResponse
+    from app.s3_service import storage_service
+
+    db_file = get_file_by_id(db, file_id)
+    if not db_file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    # Access control: users can only download their own files, admins/auditors can download any file
+    if db_file.id_usuario != current_user.id_usuario and current_user.id_rol not in [1, 3]:
+        raise HTTPException(
+            status_code=403,
+            detail="No tienes permisos para descargar este archivo"
+        )
+
+    file_stream, content_type, filename = storage_service.get_file_stream(db_file.ruta_s3)
+    
+    safe_filename = urllib.parse.quote(filename)
+    headers = {
+        "Content-Disposition": f"attachment; filename*=utf-8''{safe_filename}",
+        "Access-Control-Expose-Headers": "Content-Disposition"
+    }
+
+    create_event(
+        db, current_user.id_usuario,
+        "DESCARGA_ARCHIVO",
+        f"El usuario descargo el archivo: {filename}"
+    )
+
+    return StreamingResponse(file_stream, media_type=content_type, headers=headers)

@@ -599,11 +599,10 @@
 .role-select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
-}
-
-/* Icon Buttons */
+}/* Icon Buttons */
 .btn-icon-danger,
-.btn-icon-success {
+.btn-icon-success,
+.btn-icon-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -633,6 +632,14 @@
   background: rgba(16, 185, 129, 0.2);
 }
 
+.btn-icon-primary {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8B5CF6;
+}
+
+.btn-icon-primary:hover {
+  background: rgba(139, 92, 246, 0.2);
+}
 /* Upload Zone */
 .upload-card {
   background: #FFFFFF;

@@ -1,31 +1,13 @@
 import os
-import shutil
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 
 from app.models.all_models import File
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+from app.s3_service import storage_service
 
 
-def save_file_locally(upload_file: UploadFile, user_id: int) -> dict:
-    user_dir = os.path.join(UPLOAD_DIR, str(user_id))
-    os.makedirs(user_dir, exist_ok=True)
-
-    file_path = os.path.join(user_dir, upload_file.filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(upload_file.file, buffer)
-
-    file_size = os.path.getsize(file_path)
-    relative_path = f"uploads/{user_id}/{upload_file.filename}"
-
-    return {
-        "path": relative_path,
-        "size": file_size,
-        "content_type": upload_file.content_type or "application/octet-stream",
-    }
+def save_file_to_storage(upload_file: UploadFile, user_id: int) -> dict:
+    return storage_service.save_file(upload_file, user_id)
 
 
 def create_file_record(
@@ -75,11 +57,6 @@ def get_file_by_id(db: Session, file_id: int):
 
 
 def delete_file_record(db: Session, db_file: File):
-    file_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        db_file.ruta_s3,
-    )
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    storage_service.delete_file(db_file.ruta_s3)
     db.delete(db_file)
     db.commit()
