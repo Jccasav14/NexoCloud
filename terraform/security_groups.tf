@@ -1,4 +1,4 @@
-# Security Groups for NexoCloud
+# Firewall Rules: VPC Security Groups (ALB, Frontend, Backend, and Database)
 
 # 1. Application Load Balancer Security Group
 resource "aws_security_group" "alb_sg" {
