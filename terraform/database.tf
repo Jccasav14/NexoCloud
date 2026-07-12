@@ -1,4 +1,4 @@
-# PostgreSQL Database EC2 Instance Configuration
+# PostgreSQL Database Instance (Isolated Private Subnet Configuration)
 
 # Fetch the latest Ubuntu 22.04 AMI
 data "aws_ami" "ubuntu" {
