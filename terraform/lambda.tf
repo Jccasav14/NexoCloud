@@ -1,5 +1,5 @@
-# AWS Lambda and Amazon EventBridge Configuration for NexoCloud
-# Configured for automated processing, scheduled tasks, and CloudWatch Alarm reaction.
+# Serverless Tier: AWS Lambda and Amazon EventBridge Configuration for NexoCloud
+# Processes automated maintenance scripts and reacts to CloudWatch alarms.
 
 # 1. Package the Lambda function code
 data "archive_file" "lambda_zip" {
