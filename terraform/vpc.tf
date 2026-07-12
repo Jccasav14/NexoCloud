@@ -1,8 +1,7 @@
 # VPC configuration for NexoCloud
-# Configured with public subnets only (distributed across multiple Availability Zones)
-# to avoid the costs of an AWS NAT Gateway (~$32 USD/month) while allowing the EC2 instances
-# (including the DB instance) to access the internet to install packages and download Docker images.
-# Security is enforced at the Security Group layer.
+# Configured with public subnets for public-facing servers/ALB
+# and private subnets for secure database instances.
+# Uses a NAT Gateway to allow private subnet instances to access the internet.
 
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
