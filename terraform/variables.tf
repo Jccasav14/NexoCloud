@@ -1,3 +1,4 @@
+# Configuration Variables for NexoCloud Infrastructure
 variable "aws_region" {
   description = "AWS Region to deploy resources"
   type        = string
