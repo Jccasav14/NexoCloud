@@ -1,9 +1,4 @@
 # Informe Técnico de Arquitectura: NexoCloud
-**Autor**: Jean Casal  
-**Fecha**: 12 de Julio, 2026  
-**Tecnologías**: AWS, Terraform, Docker, Python (FastAPI), PostgreSQL
-
----
 
 ## 1. Introducción y Resumen Ejecutivo
 
