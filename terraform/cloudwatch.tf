@@ -1,4 +1,4 @@
-# Amazon CloudWatch Monitoring and Alarms
+# CloudWatch Monitoring: Log Groups, Alarms, and Metric Thresholds
 
 # 1. CloudWatch Log Group for Application Auditing
 resource "aws_cloudwatch_log_group" "app_log_group" {
