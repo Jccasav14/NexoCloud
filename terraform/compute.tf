@@ -1,4 +1,4 @@
-# AWS Compute resources: ALB, Launch Templates, and Auto Scaling Groups
+# Compute Tier: ALB, Launch Templates, and Auto Scaling Groups (ASG)
 
 # 2. Application Load Balancer
 resource "aws_lb" "app_alb" {
