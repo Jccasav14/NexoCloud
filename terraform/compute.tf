@@ -142,7 +142,7 @@ resource "aws_launch_template" "backend_lt" {
 
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.backend_sg.id]
   }
 
@@ -222,7 +222,7 @@ resource "aws_autoscaling_group" "backend_asg" {
   min_size            = 1
   max_size            = 2
   target_group_arns   = [aws_lb_target_group.backend_tg.arn]
-  vpc_zone_identifier = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
   launch_template {
     id      = aws_launch_template.backend_lt.id
