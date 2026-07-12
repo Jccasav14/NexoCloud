@@ -111,22 +111,22 @@ Durante el desarrollo de este Terraform se solucionaron problemas complejos de d
 
 1. **El Bug de Instalación de Postgres (Condición de Carrera)**:
    * *Problema*: Al arrancar la base de datos por primera vez en la subred privada, no podía descargar los paquetes de PostgreSQL porque el NAT Gateway y su tabla de rutas privada aún no terminaban de crearse en AWS, dejando el servidor sin base de datos (`Connection refused`).
-   * *Solución*: Añadimos un `depends_on` explícito a la base de datos, forzándola a esperar a que el NAT Gateway y la tabla de enrutamiento privada estén 100% activos antes de encenderse.
+   * *Solución*: Se añadió un `depends_on` explícito a la base de datos, forzándola a esperar a que el NAT Gateway y la tabla de enrutamiento privada estén 100% activos antes de encenderse.
 2. **Descifrado de SSM SecureStrings**:
    * *Problema*: Al leer el secreto de contraseña desde SSM en el `user_data` del backend, AWS devolvía la clave encriptada (un string largo cifrado), rompiendo la autenticación de la base de datos.
-   * *Solución*: Agregamos el parámetro `--with-decryption` en el comando `aws ssm get-parameter` del script de arranque.
+   * *Solución*: Se agregó el parámetro `--with-decryption` en el comando `aws ssm get-parameter` del script de arranque.
 3. **Restricción de IAM en Cuentas Escolares**:
    * *Problema*: AWS Academy bloquea la creación de nuevos roles de IAM (`AccessDenied`).
-   * *Solución*: Mapeamos todos los recursos para consumir el rol preexistente `LabRole` y el perfil de instancia `LabInstanceProfile`.
+   * *Solución*: Se mapearon todos los recursos para consumir el rol preexistente `LabRole` y el perfil de instancia `LabInstanceProfile`.
 
 ---
 
-## 5. Manual de Despliegue y Pruebas (Cómo reproducirlo)
+## 5. Manual de Despliegue y Pruebas (Instrucciones de Ejecución)
 
-Para levantar toda esta arquitectura de manera automática, sigue esta secuencia:
+El despliegue automatizado de la infraestructura se realiza mediante la siguiente secuencia de comandos y configuraciones:
 
 ### Paso 1: Configurar Credenciales de AWS
-Asegúrate de pegar tus credenciales activas del laboratorio de AWS en tu archivo local:
+Las credenciales temporales activas proporcionadas por el laboratorio de AWS deben guardarse en el archivo local de configuración del sistema:
 `C:\Users\jeanv\.aws\credentials`
 ```ini
 [default]
@@ -136,21 +136,21 @@ aws_session_token = IQoJ...
 ```
 
 ### Paso 2: Desplegar la Infraestructura
-Abre tu consola y ejecuta:
+La ejecución del despliegue se inicia desde la consola del sistema con los siguientes comandos:
 ```powershell
 cd terraform
 terraform init
 terraform apply -auto-approve
 ```
-*Terraform se encargará de crear los 53 recursos en el orden lógico correcto de forma 100% automática.*
+*Terraform se encarga de crear los 53 recursos en el orden lógico correcto de forma 100% automática.*
 
-### Paso 3: Obtener las Direcciones
-Al finalizar el apply, Terraform imprimirá los outputs en pantalla:
-* **alb_dns_name**: Enlace para abrir la aplicación web (Frontend y API).
+### Paso 3: Obtener las Direcciones de Acceso
+Al finalizar el despliegue con éxito, la salida de Terraform mostrará en la pantalla las siguientes variables:
+* **alb_dns_name**: Enlace para abrir la aplicación web (tanto para el Frontend como para la API).
 * **s3_bucket_name**: El nombre del bucket creado dinámicamente.
 
 ### Paso 4: Limpieza de Créditos
-Para no consumir créditos del laboratorio escolar, corre el comando de destrucción al finalizar tus pruebas:
+Con el fin de evitar el consumo de créditos del laboratorio escolar, se debe ejecutar el comando de destrucción al concluir las pruebas:
 ```powershell
 terraform destroy -auto-approve
 ```
