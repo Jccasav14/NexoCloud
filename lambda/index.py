@@ -1,3 +1,5 @@
+# NexoCloud Serverless Background Worker
+# Processes CloudWatch alarms and cron-based maintenance triggers.
 import urllib.parse
 import json
 
