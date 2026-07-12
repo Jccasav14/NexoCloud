@@ -1,4 +1,4 @@
-# AWS Systems Manager Parameter Store Configuration
+# Systems Manager (SSM) Parameter Store config for NexoCloud secrets and settings
 
 resource "aws_ssm_parameter" "db_host" {
   name        = "/${var.project_name}/database/host"
