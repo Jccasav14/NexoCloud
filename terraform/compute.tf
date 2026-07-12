@@ -131,6 +131,16 @@ resource "aws_launch_template" "backend_lt" {
     name = "LabInstanceProfile"
   }
 
+  depends_on = [
+    aws_instance.db_instance,
+    aws_ssm_parameter.db_host,
+    aws_ssm_parameter.db_user,
+    aws_ssm_parameter.db_password,
+    aws_ssm_parameter.db_name,
+    aws_ssm_parameter.s3_bucket
+  ]
+
+
   network_interfaces {
     associate_public_ip_address = true
     security_groups             = [aws_security_group.backend_sg.id]
@@ -146,21 +156,28 @@ resource "aws_launch_template" "backend_lt" {
     }
   }
 
-  # Configures Backend and injects the dynamic DB private IP address and S3 bucket details
+  # Configures Backend and fetches DB and S3 settings from AWS SSM Parameter Store at launch
   user_data = base64encode(<<-EOF
               #!/bin/bash
               set -ex
               sleep 10
               sudo apt-get update -y
-              sudo apt-get install -y docker.io
+              sudo apt-get install -y docker.io awscli
               sudo systemctl start docker
               sudo systemctl enable docker
               
-              # Run backend docker image
+              # Fetch configuration values dynamically from AWS SSM Parameter Store
+              DB_HOST=$(aws ssm get-parameter --name "/${var.project_name}/database/host" --query "Parameter.Value" --output text --region ${var.aws_region})
+              DB_USER=$(aws ssm get-parameter --name "/${var.project_name}/database/username" --query "Parameter.Value" --output text --region ${var.aws_region})
+              DB_PASS=$(aws ssm get-parameter --name "/${var.project_name}/database/password" --with-decryption --query "Parameter.Value" --output text --region ${var.aws_region})
+              DB_NAME=$(aws ssm get-parameter --name "/${var.project_name}/database/name" --query "Parameter.Value" --output text --region ${var.aws_region})
+              S3_BUCKET=$(aws ssm get-parameter --name "/${var.project_name}/s3/bucket_name" --query "Parameter.Value" --output text --region ${var.aws_region})
+              
+              # Run backend docker image using SSM parameters
               sudo docker run -d -p 8000:8000 --name backend \
-                -e DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${aws_instance.db_instance.private_ip}:5432/${var.db_name} \
+                -e DATABASE_URL=postgresql://$DB_USER:$DB_PASS@$DB_HOST:5432/$DB_NAME \
                 -e STORAGE_PROVIDER=s3 \
-                -e S3_BUCKET_NAME=${aws_s3_bucket.user_storage.id} \
+                -e S3_BUCKET_NAME=$S3_BUCKET \
                 -e AWS_REGION=${var.aws_region} \
                 --restart always ${var.docker_username}/nexocloud-backend:latest
               EOF

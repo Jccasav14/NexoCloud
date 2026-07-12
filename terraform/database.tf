@@ -20,10 +20,16 @@ data "aws_ami" "ubuntu" {
 resource "aws_instance" "db_instance" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = "t3.small"
-  subnet_id                   = aws_subnet.public_1.id # Public subnet to allow pkg download without NAT Gateway
+  subnet_id                   = aws_subnet.private_1.id # Private subnet to restrict direct internet access
   vpc_security_group_ids      = [aws_security_group.db_sg.id]
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   key_name                    = var.key_name != "" ? var.key_name : null
+
+  depends_on = [
+    aws_route_table_association.private_1,
+    aws_nat_gateway.nat
+  ]
+
 
   root_block_device {
     volume_size           = 30 # 30 GB EBS as requested
