@@ -10,7 +10,7 @@ from app.controllers.event_controller import get_all_events
 
 router = APIRouter(prefix="/api/audit", tags=["Auditoria"])
 
-auditor_dep = require_role(["Administrador", "Auditor"])
+auditor_dep = require_role(["Administrador", "Supervisor/Auditor", "Auditor"])
 
 
 @router.get("/events", response_model=List[EventResponse])
