@@ -164,6 +164,13 @@ export const apiService = {
     return res.json();
   },
 
+  async getFileBlob(fileId: number, preview: boolean = false): Promise<Blob> {
+    const url = `${API_URL}/files/${fileId}/download` + (preview ? "?preview=true" : "");
+    const res = await fetch(url, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Error al obtener archivo");
+    return res.blob();
+  },
+
   async getDashboardStats(): Promise<any> {
     const res = await fetch(`${API_URL}/dashboard/stats`, { headers: getHeaders() });
     if (!res.ok) throw new Error("Error al obtener estadísticas del dashboard");

@@ -767,6 +767,12 @@ function MyFilesView() {
   const [msg, setMsg] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
+  // Preview state
+  const [previewFile, setPreviewFile] = useState<{ id: number; name: string; type: string | null } | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewTextContent, setPreviewTextContent] = useState<string | null>(null);
+
   const loadFiles = useCallback(async () => {
     setLoading(true);
     try {
@@ -800,6 +806,60 @@ function MyFilesView() {
     }
   };
 
+  const handlePreview = async (id: number, name: string, type: string | null) => {
+    setPreviewLoading(true);
+    setPreviewFile({ id, name, type });
+    setPreviewBlobUrl(null);
+    setPreviewTextContent(null);
+    try {
+      const blob = await apiService.getFileBlob(id, true);
+      const url = window.URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+
+      const cleanType = type ? type.toLowerCase() : "";
+      if (cleanType.startsWith("text/") || cleanType === "application/json" || cleanType === "application/javascript") {
+        const text = await blob.text();
+        setPreviewTextContent(text);
+      }
+    } catch (err) {
+      console.error("Error loading preview:", err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewBlobUrl) {
+      window.URL.revokeObjectURL(previewBlobUrl);
+    }
+    setPreviewFile(null);
+    setPreviewBlobUrl(null);
+    setPreviewTextContent(null);
+  };
+
+  const renderPreviewContent = () => {
+    if (!previewFile) return null;
+    const cleanType = previewFile.type ? previewFile.type.toLowerCase() : "";
+    if (cleanType.startsWith("image/")) {
+      return <img src={previewBlobUrl || ""} alt="Previsualización" style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: 4 }} />;
+    } else if (cleanType === "application/pdf") {
+      return <embed src={previewBlobUrl || ""} type="application/pdf" width="100%" height="550px" style={{ borderRadius: 4 }} />;
+    } else if (cleanType.startsWith("video/")) {
+      return <video src={previewBlobUrl || ""} controls style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 4 }} />;
+    } else if (cleanType.startsWith("audio/")) {
+      return <audio src={previewBlobUrl || ""} controls style={{ width: "100%", marginTop: 20 }} />;
+    } else if (previewTextContent !== null) {
+      return <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", background: "#0F172A", color: "#F8FAFC", padding: 16, borderRadius: 8, maxHeight: "500px", width: "100%", overflow: "auto", fontFamily: "monospace", fontSize: 13, textAlign: "left" }}>{previewTextContent}</pre>;
+    } else {
+      return (
+        <div style={{ textAlign: "center", padding: "30px 20px" }}>
+          <p className="text-muted">Este tipo de archivo ({previewFile.type || "desconocido"}) no soporta previsualización directa en el navegador.</p>
+          <a href={previewBlobUrl || ""} download={previewFile.name} className="btn-change-pass" style={{ display: "inline-block", textDecoration: "none", marginTop: 16 }}>Descargar para ver</a>
+        </div>
+      );
+    }
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
@@ -827,6 +887,13 @@ function MyFilesView() {
                   <td>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
+                        className="btn-icon-secondary"
+                        onClick={() => handlePreview(f.id_archivo, f.nombre_archivo, f.tipo_archivo)}
+                        title="Previsualizar"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
                         className="btn-icon-primary"
                         onClick={() => handleDownload(f.id_archivo, f.nombre_archivo)}
                         disabled={downloadingId === f.id_archivo}
@@ -849,46 +916,101 @@ function MyFilesView() {
           </table>
         </div>
       )}
+
+      {previewFile && (
+        <div className="modal-overlay" onClick={closePreview}>
+          <div className="modal-content preview-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Previsualización: {previewFile.name}</h3>
+              <button className="btn-close" onClick={closePreview}><X size={20} /></button>
+            </div>
+            <div className="modal-body preview-body">
+              {previewLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                  <RefreshCw size={24} className="spin" />
+                  <p className="text-muted">Cargando archivo...</p>
+                </div>
+              ) : previewBlobUrl ? (
+                renderPreviewContent()
+              ) : (
+                <p className="text-muted">No se pudo cargar la previsualización del archivo.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function UploadView() {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [currentUploadIndex, setCurrentUploadIndex] = useState<number | null>(null);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
+    if (files.length === 0) return;
     setLoading(true); setMsg(""); setError("");
+    let successCount = 0;
     try {
-      const res = await apiService.uploadFile(file);
-      setMsg(`Archivo "${res.nombre_archivo}" subido exitosamente`);
-      setFile(null);
+      for (let i = 0; i < files.length; i++) {
+        setCurrentUploadIndex(i + 1);
+        await apiService.uploadFile(files[i]);
+        successCount++;
+      }
+      setMsg(`Se subieron exitosamente ${successCount} de ${files.length} archivos.`);
+      setFiles([]);
       const input = document.getElementById("file-input") as HTMLInputElement;
       if (input) input.value = "";
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error al subir archivo");
-    } finally { setLoading(false); }
+      const errMsg = err instanceof Error ? err.message : "Error al subir archivo";
+      setError(`Se subieron ${successCount} archivos. Error en el siguiente: ${errMsg}`);
+    } finally {
+      setLoading(false);
+      setCurrentUploadIndex(null);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    } else {
+      setFiles([]);
+    }
   };
 
   return (
     <div>
-      <h2>Subir Archivo</h2>
+      <h2>Subir Archivos</h2>
       {error && <div className="alert alert-error"><AlertCircle size={16} /><span>{error}</span></div>}
       {msg && <div className="alert alert-success"><CheckCircle2 size={16} /><span>{msg}</span></div>}
       <div className="upload-card">
         <form onSubmit={handleUpload}>
           <div className="upload-zone">
             <UploadCloud size={48} strokeWidth={1.5} />
-            <p>Selecciona un archivo para subir</p>
-            <input id="file-input" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <p>Selecciona uno o más archivos para subir</p>
+            <input id="file-input" type="file" multiple onChange={handleFileChange} />
           </div>
-          {file && <p className="upload-filename">Archivo seleccionado: <strong>{file.name}</strong></p>}
-          <button type="submit" className="btn-change-pass" disabled={loading || !file} style={{ marginTop: 16 }}>
-            {loading ? "Subiendo..." : "Subir Archivo"}
+          {files.length > 0 && (
+            <div className="upload-files-list">
+              <p style={{ margin: "0 0 8px 0", fontSize: 13, fontWeight: 600 }}>Archivos seleccionados ({files.length}):</p>
+              {files.map((f, idx) => (
+                <div key={idx} className="upload-file-item">
+                  <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: "70%" }}>{f.name}</span>
+                  <span className="text-muted">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button type="submit" className="btn-change-pass" disabled={loading || files.length === 0} style={{ marginTop: 16 }}>
+            {loading ? (
+              <span>Subiendo... ({currentUploadIndex} de {files.length})</span>
+            ) : (
+              "Subir Archivos"
+            )}
           </button>
         </form>
       </div>
@@ -971,6 +1093,12 @@ function AdminFilesView() {
   const [msg, setMsg] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
+  // Preview state
+  const [previewFile, setPreviewFile] = useState<{ id: number; name: string; type: string | null } | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewTextContent, setPreviewTextContent] = useState<string | null>(null);
+
   const loadFiles = useCallback(async () => {
     setLoading(true);
     try { setFiles(await apiService.getAllFiles()); } catch { setMsg("Error al cargar archivos"); }
@@ -998,6 +1126,60 @@ function AdminFilesView() {
       setMsg(err instanceof Error ? err.message : "Error al descargar el archivo");
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handlePreview = async (id: number, name: string, type: string | null) => {
+    setPreviewLoading(true);
+    setPreviewFile({ id, name, type });
+    setPreviewBlobUrl(null);
+    setPreviewTextContent(null);
+    try {
+      const blob = await apiService.getFileBlob(id, true);
+      const url = window.URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+
+      const cleanType = type ? type.toLowerCase() : "";
+      if (cleanType.startsWith("text/") || cleanType === "application/json" || cleanType === "application/javascript") {
+        const text = await blob.text();
+        setPreviewTextContent(text);
+      }
+    } catch (err) {
+      console.error("Error loading preview:", err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewBlobUrl) {
+      window.URL.revokeObjectURL(previewBlobUrl);
+    }
+    setPreviewFile(null);
+    setPreviewBlobUrl(null);
+    setPreviewTextContent(null);
+  };
+
+  const renderPreviewContent = () => {
+    if (!previewFile) return null;
+    const cleanType = previewFile.type ? previewFile.type.toLowerCase() : "";
+    if (cleanType.startsWith("image/")) {
+      return <img src={previewBlobUrl || ""} alt="Previsualización" style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: 4 }} />;
+    } else if (cleanType === "application/pdf") {
+      return <embed src={previewBlobUrl || ""} type="application/pdf" width="100%" height="550px" style={{ borderRadius: 4 }} />;
+    } else if (cleanType.startsWith("video/")) {
+      return <video src={previewBlobUrl || ""} controls style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 4 }} />;
+    } else if (cleanType.startsWith("audio/")) {
+      return <audio src={previewBlobUrl || ""} controls style={{ width: "100%", marginTop: 20 }} />;
+    } else if (previewTextContent !== null) {
+      return <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", background: "#0F172A", color: "#F8FAFC", padding: 16, borderRadius: 8, maxHeight: "500px", width: "100%", overflow: "auto", fontFamily: "monospace", fontSize: 13, textAlign: "left" }}>{previewTextContent}</pre>;
+    } else {
+      return (
+        <div style={{ textAlign: "center", padding: "30px 20px" }}>
+          <p className="text-muted">Este tipo de archivo ({previewFile.type || "desconocido"}) no soporta previsualización directa en el navegador.</p>
+          <a href={previewBlobUrl || ""} download={previewFile.name} className="btn-change-pass" style={{ display: "inline-block", textDecoration: "none", marginTop: 16 }}>Descargar para ver</a>
+        </div>
+      );
     }
   };
 
@@ -1029,6 +1211,13 @@ function AdminFilesView() {
                   <td>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
+                        className="btn-icon-secondary"
+                        onClick={() => handlePreview(f.id_archivo, f.nombre_archivo, f.tipo_archivo)}
+                        title="Previsualizar"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
                         className="btn-icon-primary"
                         onClick={() => handleDownload(f.id_archivo, f.nombre_archivo)}
                         disabled={downloadingId === f.id_archivo}
@@ -1049,6 +1238,29 @@ function AdminFilesView() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {previewFile && (
+        <div className="modal-overlay" onClick={closePreview}>
+          <div className="modal-content preview-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Previsualización: {previewFile.name}</h3>
+              <button className="btn-close" onClick={closePreview}><X size={20} /></button>
+            </div>
+            <div className="modal-body preview-body">
+              {previewLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                  <RefreshCw size={24} className="spin" />
+                  <p className="text-muted">Cargando archivo...</p>
+                </div>
+              ) : previewBlobUrl ? (
+                renderPreviewContent()
+              ) : (
+                <p className="text-muted">No se pudo cargar la previsualización del archivo.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

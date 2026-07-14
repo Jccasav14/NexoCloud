@@ -115,6 +115,7 @@ def delete_my_file(
 @router.get("/{file_id}/download")
 def download_file(
     file_id: int,
+    preview: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -136,15 +137,19 @@ def download_file(
     file_stream, content_type, filename = storage_service.get_file_stream(db_file.ruta_s3)
     
     safe_filename = urllib.parse.quote(filename)
+    disposition = "inline" if preview else "attachment"
     headers = {
-        "Content-Disposition": f"attachment; filename*=utf-8''{safe_filename}",
+        "Content-Disposition": f"{disposition}; filename*=utf-8''{safe_filename}",
         "Access-Control-Expose-Headers": "Content-Disposition"
     }
 
+    tipo_evento = "PREVISUALIZACION_ARCHIVO" if preview else "DESCARGA_ARCHIVO"
+    desc_evento = f"El usuario previsualizo el archivo: {filename}" if preview else f"El usuario descargo el archivo: {filename}"
+
     create_event(
         db, current_user.id_usuario,
-        "DESCARGA_ARCHIVO",
-        f"El usuario descargo el archivo: {filename}"
+        tipo_evento,
+        desc_evento
     )
 
     return StreamingResponse(file_stream, media_type=content_type, headers=headers)
