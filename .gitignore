@@ -35,6 +35,7 @@ Backend/app/uploads/
 # Claude Code project notes / academic documentation (not for the repo)
 CLAUDE.md
 Documentos/
+Examen_Final_Cloud
 
 # Terraform
 .terraform/
